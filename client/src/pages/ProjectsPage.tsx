@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { getProjects } from '../api/projects';
 import { api, ApiError } from '../lib/api';
 import { EmptyState, ErrorMessage, Loading } from '../lib/ui';
 import type { Project } from '../types';
@@ -16,7 +17,7 @@ export default function ProjectsPage() {
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const data = await api<Project[]>('/projects');
+      const data = await getProjects();
       setProjects(data);
     } catch (err) {
       setProjects([]);
@@ -55,6 +56,7 @@ export default function ProjectsPage() {
           <span>Nombre</span>
           <input
             type="text"
+            id="project-name"
             data-testid="project-name-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -64,6 +66,7 @@ export default function ProjectsPage() {
           <span>Descripción</span>
           <input
             type="text"
+            id="project-description"
             data-testid="project-description-input"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
