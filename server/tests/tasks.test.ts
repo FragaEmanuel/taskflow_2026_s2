@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import request from 'supertest';
-import { app, auth, createProject, registerUser } from './helpers';
+import { app, auth, createProject, registerUser, createTask } from './helpers';
+
 
 describe('Tareas', () => {
   it('crea una tarea en un proyecto', async () => {
@@ -52,5 +53,36 @@ describe('Tareas', () => {
       .set(auth(token));
 
     expect(res.body.items).toHaveLength(2);
+  });
+
+  it('rechaza que un usuario ajeno edite una tarea', async () => {
+    const owner = await registerUser('task-owner@test.com');
+    const outsider = await registerUser('task-outsider@test.com');
+    const project = await createProject(owner.token, 'Proyecto privado');
+    const task = await createTask(owner.token, project.id, {
+      title: 'Tarea protegida',
+    });
+
+    const res = await request(app)
+      .patch(`/api/tasks/${task.id}`)
+      .set(auth(outsider.token))
+      .send({ title: 'Título cambiado' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('rechaza que un usuario ajeno borre una tarea', async () => {
+    const owner = await registerUser('task-owner-delete@test.com');
+    const outsider = await registerUser('task-outsider-delete@test.com');
+    const project = await createProject(owner.token, 'Proyecto privado');
+    const task = await createTask(owner.token, project.id, {
+      title: 'Tarea protegida',
+    });
+
+    const res = await request(app)
+      .delete(`/api/tasks/${task.id}`)
+      .set(auth(outsider.token));
+
+    expect(res.status).toBe(403);
   });
 });
