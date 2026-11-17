@@ -167,6 +167,42 @@ describe('Actualizar tarea: cambios de estado', () => {
     expect(res.body.error.message).toBe('Only the assignee or a project admin can change the status');
   });
 
+  it('para quien no es asignado ni admin, el permiso se evalúa antes que la transición', async () => {
+    const { owner, member, task } = await scenario('upd-st-order');
+    await patchTask(owner.token, task.id, { status: 'IN_PROGRESS' });
+    await patchTask(owner.token, task.id, { status: 'DONE' });
+
+    // DONE -> TODO es una transición inválida, pero primero se rechaza por permisos.
+    const res = await patchTask(member.token, task.id, { status: 'TODO' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('el asignado que pide una transición inválida recibe 422', async () => {
+    const { owner, member, task } = await scenario('upd-st-assignee-invalid');
+    await patchTask(owner.token, task.id, { assigneeId: member.id });
+    await patchTask(member.token, task.id, { status: 'IN_PROGRESS' });
+    await patchTask(member.token, task.id, { status: 'DONE' });
+
+    const res = await patchTask(member.token, task.id, { status: 'IN_PROGRESS' });
+
+    expect(res.status).toBe(422);
+  });
+
+  it('con varios campos inválidos informa el primero en el orden título, prioridad, fecha, asignado, estado', async () => {
+    const { owner, task } = await scenario('upd-order');
+
+    const res = await patchTask(owner.token, task.id, {
+      status: 'ARCHIVED',
+      assigneeId: 'nadie',
+      dueDate: 'mañana',
+      priority: 'URGENT',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/^Priority must be one of/);
+  });
+
   it('alguien ajeno al proyecto no puede cambiar el estado', async () => {
     const { outsider, task } = await scenario('upd-st-outsider');
 
