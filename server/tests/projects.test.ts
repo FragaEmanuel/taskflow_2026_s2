@@ -14,6 +14,39 @@ describe('Proyectos', () => {
     expect(res.status).toBe(201);
   });
 
+  it('rechaza crear un proyecto sin nombre', async () => {
+    const { token } = await registerUser('project-empty@test.com');
+
+    const res = await request(app)
+      .post('/api/projects')
+      .set(auth(token))
+      .send({ name: '' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rechaza crear un proyecto con nombre corto', async () => {
+    const { token } = await registerUser('project-short@test.com');
+
+    const res = await request(app)
+      .post('/api/projects')
+      .set(auth(token))
+      .send({ name: 'Ab' });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('crea un proyecto con nombre válido', async () => {
+    const { token } = await registerUser('project-valid@test.com');
+
+    const res = await request(app)
+      .post('/api/projects')
+      .set(auth(token))
+      .send({ name: 'Proyecto válido' });
+
+    expect(res.status).toBe(201);
+  });
+
   it('lista los proyectos del usuario', async () => {
     const { token } = await registerUser('proj2@test.com');
     await request(app).post('/api/projects').set(auth(token)).send({ name: 'Proyecto A' });
