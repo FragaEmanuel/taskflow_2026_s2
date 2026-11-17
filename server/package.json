@@ -12,6 +12,7 @@
     "db:seed": "ts-node --transpile-only prisma/seed.ts",
     "db:seed:large": "ts-node --transpile-only prisma/seed-large.ts",
     "test": "jest --runInBand",
+    "test:contract": "jest --runInBand tests/contract/pact-verifier.test.ts",
     "test:coverage": "jest --runInBand --coverage",
     "lint": "eslint src --ext .ts"
   },

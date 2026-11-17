@@ -1,0 +1,59 @@
+{
+  "consumer": {
+    "name": "taskflow-web"
+  },
+  "interactions": [
+    {
+      "description": "un GET a /api/projects",
+      "pending": false,
+      "providerStates": [
+        {
+          "name": "el usuario ana tiene proyectos"
+        }
+      ],
+      "request": {
+        "headers": {
+          "Authorization": [
+            "Bearer token-de-prueba"
+          ]
+        },
+        "method": "GET",
+        "path": "/api/projects"
+      },
+      "response": {
+        "body": {
+          "content": [
+            {
+              "id": "proj-1",
+              "name": "Proyecto 1"
+            }
+          ],
+          "contentType": "application/json",
+          "encoded": false
+        },
+        "headers": {
+          "Content-Type": [
+            "application/json"
+          ]
+        },
+        "status": 200
+      },
+      "type": "Synchronous/HTTP"
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "17.1.4"
+    },
+    "pactRust": {
+      "ffi": "0.5.8",
+      "models": "1.3.16"
+    },
+    "pactSpecification": {
+      "version": "4.0"
+    }
+  },
+  "provider": {
+    "name": "taskflow-api"
+  }
+}
