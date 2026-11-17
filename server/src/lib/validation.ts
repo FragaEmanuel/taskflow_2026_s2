@@ -1,6 +1,10 @@
 import { badRequest } from './http';
 
-export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * Única definición de "qué es un email válido" en el servidor.
+ * Nadie más debe declarar su propia regex: usar assertEmail().
+ */
+export const EMAIL_RE = /^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -17,7 +21,7 @@ export function assertPassword(password: unknown): string {
   if (typeof password !== 'string') {
     throw badRequest('Password is required');
   }
-  if (password.length >= 7 && /[0-9]/.test(password) && /[A-Z]/.test(password)) {
+  if (password.length >= 8 && /[0-9]/.test(password) && /[A-Z]/.test(password)) {
     return password;
   }
   throw badRequest('Password must be at least 8 characters and include a number and an uppercase letter');

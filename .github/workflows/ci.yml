@@ -1,0 +1,153 @@
+name: CI de calidad (informativo)
+
+# Este pipeline INFORMA, no bloquea: no hay branch protection, así que un PR
+# con checks en rojo igual se puede mergear. Cada job es independiente (no hay
+# `needs`) para que una etapa en rojo no oculte el resultado de las demás.
+# En un equipo real, estos mismos checks se marcan como obligatorios para mergear.
+
+on:
+  push:
+  pull_request:
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  build-server:
+    name: Build del servidor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Generar el cliente de Prisma
+        run: npx prisma generate
+        working-directory: server
+      - name: Compilar el servidor
+        run: npm run build
+
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Analizar el código con ESLint
+        run: npm run lint
+
+  tests:
+    name: Tests (unit e integración)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Generar el cliente de Prisma
+        run: npx prisma generate
+        working-directory: server
+      - name: Correr los tests
+        run: npm test
+
+  coverage:
+    name: Cobertura con umbral (líneas 70 / ramas 40)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Generar el cliente de Prisma
+        run: npx prisma generate
+        working-directory: server
+      - name: Medir cobertura y exigir el umbral
+        run: npx jest --runInBand --coverage --coverageThreshold='{"global":{"lines":70,"branches":40}}'
+        working-directory: server
+
+  build-client:
+    name: Build del cliente
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Compilar el cliente
+        run: npm run build:client
+
+  e2e:
+    name: E2E (Playwright Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Base descartable del runner; no utiliza la base de desarrollo local.
+      DATABASE_URL: file:./e2e-ci.db
+      JWT_SECRET: taskflow-e2e-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+            client/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Instalar Chromium y dependencias del sistema
+        run: npx playwright install --with-deps chromium
+      - name: Preparar la base de datos de E2E
+        run: npm run db:reset
+      # webServer en playwright.config.ts ejecuta dev:server y dev:client,
+      # y espera a /api/health y al frontend antes de iniciar los tests.
+      - name: Levantar la app y ejecutar Playwright
+        run: npx playwright test --project=chromium --trace=on
+      - name: Guardar reporte y traces
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
