@@ -10,7 +10,7 @@ test('TODO → DONE se rechaza y el tablero sigue mostrando la tarea en TODO (US
   await boardPage.gotoProject(testProject.id);
   await boardPage.createTask(taskTitle);
   const taskCard = boardPage.taskCard(taskTitle);
-  await expect(taskCard).toBeVisible();
+  await expect(taskCard.root).toBeVisible();
 
   await boardPage.changeTaskStatus(taskTitle, 'DONE');
 
