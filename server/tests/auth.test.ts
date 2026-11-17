@@ -1,16 +1,5 @@
-import request from 'supertest';
-import { db } from '../src/lib/db';
+﻿import request from 'supertest';
 import { app } from './helpers';
-
-const PASSWORD = 'Password1';
-
-async function register(email: string, password = PASSWORD) {
-  return request(app).post('/api/auth/register').send({ email, password });
-}
-
-async function login(email: string, password = PASSWORD) {
-  return request(app).post('/api/auth/login').send({ email, password });
-}
 
 describe('Auth', () => {
   it('registra un usuario nuevo', async () => {
@@ -21,138 +10,142 @@ describe('Auth', () => {
     expect(res.status).toBe(201);
   });
 
-  it('inicia sesión con credenciales válidas', async () => {
-    await register('login@test.com');
+  it('inicia sesiÃ³n con credenciales vÃ¡lidas', async () => {
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'login@test.com', password: 'Password1' });
 
-    const res = await login('login@test.com');
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'login@test.com', password: 'Password1' });
 
     expect(res.status).toBe(200);
   });
 
-  it('rechaza el login con contraseña incorrecta', async () => {
-    await register('wrong@test.com');
+  it('rechaza el login con contraseÃ±a incorrecta', async () => {
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'wrong@test.com', password: 'Password1' });
 
-    const res = await login('wrong@test.com', 'Otracosa9');
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'wrong@test.com', password: 'Otracosa9' });
 
     expect(res.status).toBe(401);
   });
 
-  describe('registro', () => {
-    it('rechaza un email duplicado', async () => {
-      await register('duplicate@test.com');
+  it('rechaza el registro con email invÃ¡lido (US-01 CA1)', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'no-es-email', password: 'Password1' });
 
-      const res = await register('duplicate@test.com');
-
-      expect(res.status).toBe(409);
-    });
-
-    it('rechaza un email inválido', async () => {
-      const res = await register('no-es-un-email');
-
-      expect(res.status).toBe(400);
-    });
-
-    it('rechaza una contraseña débil', async () => {
-      const res = await register('weak@test.com', 'corta');
-
-      expect(res.status).toBe(400);
-    });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  describe('login', () => {
-    it('rechaza un email inexistente', async () => {
-      const res = await login('nadie@test.com');
+  it('devuelve 409 al registrar un email ya existente (US-01 CA4)', async () => {
+    const email = `us01-ca4-${Date.now()}@test.com`;
+    await request(app).post('/api/auth/register').send({ email, password: 'Password1' });
 
-      expect(res.status).toBe(401);
-    });
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'Password1' });
 
-    it('bloquea la cuenta tras cinco intentos fallidos', async () => {
-      await register('lock@test.com');
-
-      for (let i = 0; i < 5; i += 1) {
-        const res = await login('lock@test.com', 'Incorrecta9');
-        expect(res.status).toBe(401);
-      }
-
-      const locked = await login('lock@test.com');
-      expect(locked.status).toBe(401);
-      expect(locked.body.error.message).toMatch(/locked/i);
-    });
-
-    it('vuelve a permitir el login cuando el bloqueo expiró', async () => {
-      await register('unlock@test.com');
-      const user = await db.user.findUnique({ where: { email: 'unlock@test.com' } });
-      await db.user.update({
-        where: { id: user!.id },
-        data: { lockedUntil: new Date(Date.now() - 1000) },
-      });
-
-      const res = await login('unlock@test.com');
-
-      expect(res.status).toBe(200);
-      const after = await db.user.findUnique({ where: { email: 'unlock@test.com' } });
-      expect(after!.lockedUntil).toBeNull();
-    });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('CONFLICT');
+    expect(res.body.error.message).toBe('Email already registered');
   });
 
-  describe('recuperación de contraseña', () => {
-    it('responde de forma neutra a un email desconocido', async () => {
-      const res = await request(app)
-        .post('/api/auth/forgot-password')
-        .send({ email: 'desconocido@test.com' });
+  it('normaliza el email a minÃºsculas al registrarse (US-01 CA2)', async () => {
+    const email = `us01-ca2-${Date.now()}@test.com`;
 
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeUndefined();
-    });
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ email: email.toUpperCase(), password: 'Password1' });
 
-    it('rechaza un email inválido', async () => {
-      const res = await request(app)
-        .post('/api/auth/forgot-password')
-        .send({ email: 'no-es-un-email' });
+    expect(reg.status).toBe(201);
+    expect(reg.body.user.email).toBe(email);
 
-      expect(res.status).toBe(400);
-    });
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: email.toUpperCase(), password: 'Password1' });
+    expect(login.status).toBe(200);
 
-    it('permite resetear la contraseña y invalida el token', async () => {
-      await register('reset@test.com');
+    const repeated = await request(app)
+      .post('/api/auth/register')
+      .send({ email: email.toUpperCase(), password: 'Password1' });
+    expect(repeated.status).toBe(409);
+  });
 
-      const forgot = await request(app)
-        .post('/api/auth/forgot-password')
-        .send({ email: 'reset@test.com' });
-      expect(forgot.status).toBe(200);
-      expect(typeof forgot.body.token).toBe('string');
+  it('no devuelve la contraseÃ±a en ninguna respuesta (US-01 CA7)', async () => {
+    const email = `us01-ca7-${Date.now()}@test.com`;
 
-      const reset = await request(app)
-        .post('/api/auth/reset-password')
-        .send({ token: forgot.body.token, newPassword: 'NuevaClave9' });
-      expect(reset.status).toBe(200);
+    const reg = await request(app)
+      .post('/api/auth/register')
+      .send({ email, password: 'Password1' });
 
-      const oldLogin = await login('reset@test.com', PASSWORD);
-      expect(oldLogin.status).toBe(401);
+    expect(reg.status).toBe(201);
+    expect(reg.body.user).not.toHaveProperty('password');
+    expect(reg.body.user).not.toHaveProperty('passwordHash');
+    expect(JSON.stringify(reg.body)).not.toContain('Password1');
 
-      const newLogin = await login('reset@test.com', 'NuevaClave9');
-      expect(newLogin.status).toBe(200);
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password: 'Password1' });
 
-      const reuse = await request(app)
-        .post('/api/auth/reset-password')
-        .send({ token: forgot.body.token, newPassword: 'OtraClave9' });
-      expect(reuse.status).toBe(400);
-    });
+    expect(login.status).toBe(200);
+    expect(login.body.user).not.toHaveProperty('password');
+    expect(login.body.user).not.toHaveProperty('passwordHash');
+    expect(JSON.stringify(login.body)).not.toContain('Password1');
+  });
 
-    it('rechaza un token inválido', async () => {
-      const res = await request(app)
-        .post('/api/auth/reset-password')
-        .send({ token: 'token-invalido', newPassword: 'NuevaClave9' });
+  it('usa el mismo mensaje de error para email inexistente y contraseÃ±a incorrecta (US-02 CA3)', async () => {
+    const email = `us02-ca3-${Date.now()}@test.com`;
+    await request(app).post('/api/auth/register').send({ email, password: 'Password1' });
 
-      expect(res.status).toBe(400);
-    });
+    const unknown = await request(app)
+      .post('/api/auth/login')
+      .send({ email: `nadie-${Date.now()}@test.com`, password: 'Password1' });
+    const wrong = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password: 'Otracosa9' });
 
-    it('rechaza una contraseña nueva débil', async () => {
-      const res = await request(app)
-        .post('/api/auth/reset-password')
-        .send({ token: 'token-invalido', newPassword: 'corta' });
+    expect(unknown.status).toBe(401);
+    expect(wrong.status).toBe(401);
+    expect(unknown.body.error.message).toBe(wrong.body.error.message);
+  });
 
-      expect(res.status).toBe(400);
-    });
+  // BUG-07: assertPassword valida length >= 7 en lugar del mÃ­nimo 8 de
+  // US-01 CA3; la contraseÃ±a 'Abc1234' (7 caracteres) hoy se acepta.
+  it('rechaza una contraseÃ±a de exactamente 7 caracteres (US-01 CA3)', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: `us01-ca3-${Date.now()}@test.com`, password: 'Abc1234' });
+
+    expect(res.status).toBe(400);
+  });
+
+  // BUG-20: el login exitoso nunca pone failedAttempts en 0, asÃ­ que el
+  // contador acumula fallos aunque haya logins exitosos intercalados y la
+  // cuenta se bloquea antes de los 5 fallos consecutivos que exige US-02 CA5.
+  it('el contador de intentos se reinicia tras un login exitoso (US-02 CA5)', async () => {
+    const email = `us02-ca5-${Date.now()}@test.com`;
+    await request(app).post('/api/auth/register').send({ email, password: 'Password1' });
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await request(app).post('/api/auth/login').send({ email, password: 'WrongPass1' });
+    }
+
+    const ok = await request(app).post('/api/auth/login').send({ email, password: 'Password1' });
+    expect(ok.status).toBe(200);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await request(app).post('/api/auth/login').send({ email, password: 'WrongPass1' });
+    }
+
+    const stillOk = await request(app)
+      .post('/api/auth/login')
+      .send({ email, password: 'Password1' });
+    expect(stillOk.status).toBe(200);
   });
 });

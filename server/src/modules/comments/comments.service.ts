@@ -1,11 +1,19 @@
-import type { Comment } from '@prisma/client';
 import { badRequest, forbidden, notFound } from '../../lib/http';
 import { toPublicId } from '../../lib/ids';
 import * as repo from './comments.repository';
 
 const MAX_LENGTH = 1000;
 
-export function serialize(c: Comment) {
+interface CommentRecord {
+  id: number;
+  taskId: number;
+  authorId: number;
+  body: string;
+  createdAt: Date;
+}
+
+export function serialize(c: CommentRecord | null) {
+  if (!c) return null;
   try {
     return {
       id: toPublicId('comment', c.id),
@@ -24,7 +32,7 @@ export async function list(taskId: number) {
   return rows.map(serialize);
 }
 
-export async function create(taskId: number, authorId: number, body: Record<string, unknown>) {
+export async function create(taskId: number, authorId: number, body: { body?: unknown }) {
   const text = typeof body?.body === 'string' ? body.body.trim() : '';
   if (text.length < 1 || text.length > MAX_LENGTH) {
     throw badRequest(`Comment body must be between 1 and ${MAX_LENGTH} characters`);

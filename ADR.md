@@ -19,34 +19,13 @@
 
 - **POM clásico: descartado**  — con componentes compartidos, las clases de página completa duplican selectores y mezclan responsabilidades.
 
-- **Screenplay: descartado por ahora**  — costo alto, aplicacion relativamente pequeña. No vale la pena todo el trabajo de seteo 
+- **Screenplay: descartado por ahora**  — costo alto, aplicacion relativamente pequeña. No vale la pena todo el trabajo de seteo
 
 ## Parte 3 — Propuesta de cambio 
 
-> **Adoptar tests E2E, usando Component Object Model + App Actions/Fixtures.** 
-
-**Posible Estructura:**
-
-```
-client/tests/
-├── fixtures/              # inyección de estado
-│   ├── api.ts             # request contra la API (crear proyecto/tarea por HTTP)
-│   └── auth.ts            # login real + plantar token en localStorage
-├── actions/               # App Actions (módulos funcionales)
-│   └── app.ts             # loginAs(), openBoard(), createTask(), logout()
-├── components/            # Component Object Model
-│   ├── header.ts          # class AppHeader (logout, email del usuario)
-│   ├── board.ts           # class BoardColumn (TODO / IN_PROGRESS / DONE)
-│   └── feedback.ts        # class Feedback (Loading, ErrorMessage, EmptyState)
-├── pages/                 # páginas como composición de componentes
-│   ├── login.page.ts      # class LoginPage (formulario + submit)
-│   ├── projects.page.ts
-│   └── board.page.ts
-```
+ **Adoptar tests E2E, usando Component Object Model + App Actions/Fixtures.**
 
 
 
 
 Hola esto es un test
-
-

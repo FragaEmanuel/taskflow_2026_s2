@@ -8,3 +8,7 @@ test-results/
 .env
 server/tests/.tmp/
 .DS_Store
+.cortexkit/magic-context/
+test-results/
+playwright-report/
+~$*.docx
