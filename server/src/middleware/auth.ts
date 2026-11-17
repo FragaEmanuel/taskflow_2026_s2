@@ -2,12 +2,13 @@ import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { unauthorized } from '../lib/http';
 
-/*
-
-  La clave JWT_SECRET esta hardcodeada en el código fuente, lo cual no es seguro para un entorno de producción.
-
-*/
-export const JWT_SECRET = process.env.JWT_SECRET ?? 'taskflow-dev-secret';
+export function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required');
+  }
+  return secret;
+}
 
 export interface TokenPayload {
   userId: number;
@@ -24,7 +25,7 @@ declare global {
 }
 
 export function signToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '24h' });
 }
 
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
@@ -34,7 +35,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     return;
   }
   try {
-    const decoded = jwt.verify(header.slice(7), JWT_SECRET) as TokenPayload;
+    const decoded = jwt.verify(header.slice(7), getJwtSecret()) as TokenPayload;
     req.user = { userId: decoded.userId, email: decoded.email };
     next();
   } catch {
